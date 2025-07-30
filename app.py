@@ -3,11 +3,14 @@ import numpy as np
 import pandas as pd
 from utils.audio_processor import AudioProcessor
 from utils.image_processor import ImageProcessor
+from utils.video_processor import VideoProcessor
 from utils.ml_models import MedicalAISystem
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
 import time
+import os
+import tempfile
 
 # Page configuration
 st.set_page_config(
@@ -25,12 +28,12 @@ def load_medical_ai_system():
 
 @st.cache_resource
 def load_processors():
-    """Load and cache the audio and image processors."""
-    return AudioProcessor(), ImageProcessor()
+    """Load and cache the audio, image, and video processors."""
+    return AudioProcessor(), ImageProcessor(), VideoProcessor()
 
 # Load systems
 medical_ai = load_medical_ai_system()
-audio_processor, image_processor = load_processors()
+audio_processor, image_processor, video_processor = load_processors()
 
 def main():
     """Main application function."""
@@ -47,7 +50,7 @@ def main():
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Choose Analysis Type:",
-        ["Audio Analysis", "Image Analysis", "Combined Analysis"]
+        ["Audio Analysis", "Image Analysis", "Video Analysis", "Combined Analysis"]
     )
     
     # Create tabs based on selection
@@ -55,6 +58,8 @@ def main():
         audio_analysis_tab()
     elif analysis_type == "Image Analysis":
         image_analysis_tab()
+    elif analysis_type == "Video Analysis":
+        video_analysis_tab()
     else:
         combined_analysis_tab()
     
@@ -69,10 +74,15 @@ def main():
         **Supported Image Formats:**
         - JPG, JPEG, PNG, BMP, TIFF
         
+        **Supported Video Formats:**
+        - MP4, AVI, MOV, MKV, WMV, FLV
+        
         **Features:**
         - Audio waveform analysis
         - Spectrogram visualization
         - Medical image processing
+        - Video frame extraction
+        - Audio extraction from video
         - AI-powered predictions
         - Confidence scoring
         """)
@@ -120,7 +130,10 @@ def audio_analysis_tab():
                 
                 # Extract and display features
                 with st.spinner("Extracting audio features..."):
-                    features = audio_processor.extract_features(audio_data, sample_rate)
+                    if audio_data is not None and sample_rate is not None:
+                        features = audio_processor.extract_features(audio_data, sample_rate)
+                    else:
+                        features = {}
                 
                 if features:
                     st.subheader("🔍 Audio Features")
@@ -136,14 +149,15 @@ def audio_analysis_tab():
                 st.subheader("📈 Visualizations")
                 
                 # Waveform plot
-                with st.spinner("Creating waveform..."):
-                    waveform_fig = audio_processor.create_waveform_plot(audio_data, sample_rate)
-                    st.pyplot(waveform_fig)
-                
-                # Spectrogram plot
-                with st.spinner("Creating spectrogram..."):
-                    spectrogram_fig = audio_processor.create_spectrogram_plot(audio_data, sample_rate)
-                    st.pyplot(spectrogram_fig)
+                if audio_data is not None and sample_rate is not None:
+                    with st.spinner("Creating waveform..."):
+                        waveform_fig = audio_processor.create_waveform_plot(audio_data, sample_rate)
+                        st.pyplot(waveform_fig)
+                    
+                    # Spectrogram plot
+                    with st.spinner("Creating spectrogram..."):
+                        spectrogram_fig = audio_processor.create_spectrogram_plot(audio_data, sample_rate)
+                        st.pyplot(spectrogram_fig)
             
             # AI Prediction
             st.subheader("🤖 AI Medical Analysis")
@@ -250,6 +264,218 @@ def image_analysis_tab():
                     overlay_image = image_processor.create_prediction_overlay(image, prediction_results)
                     st.image(overlay_image, caption="Image with AI Predictions", use_container_width=True)
 
+def video_analysis_tab():
+    """Handle video analysis functionality - extract audio and frames."""
+    st.header("🎬 Video Analysis")
+    st.markdown("Process video files to extract audio and frames for medical analysis. Videos will be analyzed for both audio patterns and visual content.")
+    
+    # Option 1: Upload new video
+    st.subheader("📤 Upload Video File")
+    uploaded_video = st.file_uploader(
+        "Choose a video file",
+        type=['mp4', 'avi', 'mov', 'mkv', 'wmv'],
+        help="Upload video files for audio and frame extraction"
+    )
+    
+    # Option 2: Use existing extracted videos
+    st.subheader("📁 Use Extracted Video Data")
+    st.markdown("Select from the extracted video files:")
+    
+    video_files = []
+    data_dir = "data/Healthy"
+    if os.path.exists(data_dir):
+        video_files = [f for f in os.listdir(data_dir) if f.endswith('.mp4')]
+    
+    if video_files:
+        selected_video = st.selectbox(
+            "Choose a video file:",
+            ["None"] + video_files
+        )
+        
+        if selected_video != "None":
+            video_path = os.path.join(data_dir, selected_video)
+            process_video_file(video_path, selected_video)
+    else:
+        st.info("No extracted video files found. Please upload a video or check if the data was extracted properly.")
+    
+    # Process uploaded video
+    if uploaded_video is not None:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+            tmp_file.write(uploaded_video.getvalue())
+            temp_path = tmp_file.name
+        
+        try:
+            process_video_file(temp_path, uploaded_video.name)
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+def process_video_file(video_path: str, video_name: str):
+    """Process a video file and extract audio and frames."""
+    import os
+    import tempfile
+    
+    if not video_processor.validate_video_file(video_path):
+        st.error("Invalid video file format.")
+        return
+    
+    st.success(f"Processing video: {video_name}")
+    
+    # Get video information
+    with st.spinner("Analyzing video..."):
+        video_info = video_processor.get_video_info(video_path)
+    
+    if video_info:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📊 Video Information")
+            info_df = pd.DataFrame([
+                {"Property": "Duration", "Value": f"{video_info.get('duration', 0):.2f} seconds"},
+                {"Property": "Frame Rate", "Value": f"{video_info.get('fps', 0):.2f} FPS"},
+                {"Property": "Resolution", "Value": f"{video_info.get('width', 0)}x{video_info.get('height', 0)}"},
+                {"Property": "Total Frames", "Value": f"{video_info.get('frame_count', 0)}"},
+                {"Property": "File Size", "Value": f"{video_info.get('file_size_mb', 0):.2f} MB"},
+            ])
+            st.dataframe(info_df, use_container_width=True)
+        
+        with col2:
+            st.subheader("🎬 Video Preview")
+            # Display video player
+            try:
+                if os.path.exists(video_path):
+                    with open(video_path, 'rb') as video_file:
+                        video_bytes = video_file.read()
+                        st.video(video_bytes)
+            except Exception as e:
+                st.warning(f"Could not display video preview: {str(e)}")
+        
+        # Frame extraction section
+        st.subheader("🖼️ Frame Extraction")
+        
+        extraction_method = st.selectbox(
+            "Choose frame extraction method:",
+            ["Uniform Sampling", "Key Frame Detection"]
+        )
+        
+        if extraction_method == "Uniform Sampling":
+            num_frames = st.slider("Number of frames to extract:", 5, 20, 10)
+            
+            if st.button("Extract Frames", type="primary"):
+                with st.spinner("Extracting frames..."):
+                    frames = video_processor.extract_frames(video_path, num_frames, method='uniform')
+                
+                if frames:
+                    st.success(f"Extracted {len(frames)} frames")
+                    
+                    # Display frame grid
+                    fig = video_processor.create_frame_grid(frames)
+                    if fig:
+                        st.pyplot(fig)
+                    
+                    # Analyze frame quality
+                    quality_metrics = video_processor.analyze_frame_quality(frames)
+                    if quality_metrics:
+                        st.subheader("📈 Frame Quality Analysis")
+                        quality_df = pd.DataFrame([
+                            {"Metric": "Average Brightness", "Value": f"{quality_metrics.get('mean_brightness', 0):.2f}"},
+                            {"Metric": "Average Contrast", "Value": f"{quality_metrics.get('mean_contrast', 0):.2f}"},
+                            {"Metric": "Average Blur Score", "Value": f"{quality_metrics.get('mean_blur_score', 0):.2f}"},
+                        ])
+                        st.dataframe(quality_df, use_container_width=True)
+                    
+                    # AI Analysis on frames
+                    st.subheader("🤖 AI Analysis on Frames")
+                    if st.button("Analyze Frames with AI", key="frame_analysis"):
+                        with st.spinner("Analyzing frames..."):
+                            preprocessed_frames = video_processor.preprocess_frames_for_prediction(frames)
+                            
+                            # Analyze each frame individually and aggregate results
+                            frame_predictions = []
+                            for i, frame in enumerate(frames):
+                                frame_pred = medical_ai.get_image_prediction(frame.reshape(1, *frame.shape))
+                                frame_predictions.append({
+                                    'frame': i + 1,
+                                    'prediction': frame_pred.get('predicted_class', 'Unknown'),
+                                    'confidence': frame_pred.get('confidence', 0)
+                                })
+                            
+                            # Display frame-by-frame results
+                            st.write("**Frame-by-Frame Analysis:**")
+                            frames_df = pd.DataFrame(frame_predictions)
+                            st.dataframe(frames_df, use_container_width=True)
+                            
+                            # Aggregate analysis
+                            if frame_predictions:
+                                avg_confidence = np.mean([fp['confidence'] for fp in frame_predictions])
+                                most_common_pred = max(set([fp['prediction'] for fp in frame_predictions]), 
+                                                     key=[fp['prediction'] for fp in frame_predictions].count)
+                                
+                                st.metric("Overall Prediction", most_common_pred)
+                                st.metric("Average Confidence", f"{avg_confidence:.1%}")
+        
+        else:  # Key Frame Detection
+            threshold = st.slider("Scene change threshold:", 10.0, 50.0, 30.0)
+            
+            if st.button("Extract Key Frames", type="primary"):
+                with st.spinner("Detecting key frames..."):
+                    key_frames = video_processor.extract_key_frames(video_path, threshold)
+                
+                if key_frames:
+                    st.success(f"Extracted {len(key_frames)} key frames")
+                    
+                    # Display key frames with frame numbers
+                    for i, (frame_idx, frame) in enumerate(key_frames[:10]):  # Show max 10 frames
+                        st.image(frame, caption=f"Key Frame at position {frame_idx}", width=300)
+        
+        # Audio extraction section
+        st.subheader("🎵 Audio Extraction")
+        
+        if st.button("Extract Audio from Video", type="primary"):
+            with st.spinner("Extracting audio..."):
+                audio_data, sample_rate = video_processor.extract_audio_from_video(video_path)
+            
+            if audio_data is not None:
+                st.success("Audio extracted successfully!")
+                
+                # Display audio information
+                duration = len(audio_data) / sample_rate
+                st.metric("Audio Duration", f"{duration:.2f} seconds")
+                st.metric("Sample Rate", f"{sample_rate} Hz")
+                
+                # Audio player (create temporary audio file)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_audio:
+                    import soundfile as sf
+                    sf.write(tmp_audio.name, audio_data, sample_rate)
+                    st.audio(tmp_audio.name, format='audio/wav')
+                    os.unlink(tmp_audio.name)
+                
+                # Extract audio features
+                with st.spinner("Analyzing audio features..."):
+                    audio_features = audio_processor.extract_features(audio_data, sample_rate)
+                
+                if audio_features:
+                    st.subheader("🔍 Audio Features")
+                    feature_df = pd.DataFrame([
+                        {"Feature": "RMS Energy", "Value": f"{audio_features.get('rms_energy', 0):.4f}"},
+                        {"Feature": "Zero Crossing Rate", "Value": f"{audio_features.get('zero_crossing_rate', 0):.4f}"},
+                        {"Feature": "Spectral Centroid (Mean)", "Value": f"{audio_features.get('spectral_centroid_mean', 0):.2f} Hz"},
+                    ])
+                    st.dataframe(feature_df, use_container_width=True)
+                
+                # AI Analysis on audio
+                st.subheader("🤖 AI Analysis on Audio")
+                if st.button("Analyze Audio with AI", key="audio_analysis"):
+                    with st.spinner("Analyzing audio..."):
+                        audio_vector = audio_processor.preprocess_for_prediction(audio_features)
+                        audio_prediction = medical_ai.get_audio_prediction(audio_vector)
+                    
+                    display_prediction_results(audio_prediction, "audio")
+            else:
+                st.warning("No audio track found in the video or audio extraction failed.")
+
 def combined_analysis_tab():
     """Handle combined audio and image analysis."""
     st.header("🔄 Combined Analysis")
@@ -289,14 +515,20 @@ def combined_analysis_tab():
             with st.spinner("Performing comprehensive medical analysis..."):
                 # Process audio
                 audio_data, sample_rate = audio_processor.load_audio(uploaded_audio)
-                audio_features = audio_processor.extract_features(audio_data, sample_rate)
-                audio_vector = audio_processor.preprocess_for_prediction(audio_features)
-                audio_results = medical_ai.get_audio_prediction(audio_vector)
+                if audio_data is not None and sample_rate is not None:
+                    audio_features = audio_processor.extract_features(audio_data, sample_rate)
+                    audio_vector = audio_processor.preprocess_for_prediction(audio_features)
+                    audio_results = medical_ai.get_audio_prediction(audio_vector)
+                else:
+                    audio_results = {'predicted_class': 'Error', 'confidence': 0.0}
                 
                 # Process image
                 image = image_processor.load_image(uploaded_image)
-                preprocessed_image = image_processor.preprocess_for_prediction(image)
-                image_results = medical_ai.get_image_prediction(preprocessed_image)
+                if image is not None:
+                    preprocessed_image = image_processor.preprocess_for_prediction(image)
+                    image_results = medical_ai.get_image_prediction(preprocessed_image)
+                else:
+                    image_results = {'predicted_class': 'Error', 'confidence': 0.0}
                 
                 # Combined analysis
                 combined_results = medical_ai.get_combined_analysis(audio_results, image_results)
