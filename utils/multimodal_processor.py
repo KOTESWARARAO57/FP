@@ -298,11 +298,7 @@ class NeuropsychiatricDiseaseClassifier:
             'Healthy',
             'Depression',
             'Parkinson\'s Disease', 
-            'Hypothyroidism',
-            'Anxiety Disorder',
-            'Bipolar Disorder',
-            'Schizophrenia',
-            'Dementia'
+            'Hypothyroidism'
         ]
         
         self.facial_model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -328,10 +324,10 @@ class NeuropsychiatricDiseaseClassifier:
         n_speech_features = 25
         speech_X = np.random.randn(n_samples, n_speech_features)
         
-        # Generate labels with realistic clinical distribution
-        # Most samples are healthy, smaller portions have specific diseases
+        # Generate labels with realistic clinical distribution for 4 target conditions
+        # Higher proportion for better training on target diseases
         labels = np.random.choice(len(self.diseases), n_samples, 
-                                p=[0.25, 0.20, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04])
+                                p=[0.40, 0.25, 0.20, 0.15])
         
         # Add realistic disease-specific patterns based on medical research
         for i, disease in enumerate(self.diseases):
@@ -355,26 +351,7 @@ class NeuropsychiatricDiseaseClassifier:
                     speech_X[mask, 6:9] -= 0.8   # Slower speech rate
                     speech_X[mask, 3:6] -= 0.5   # Lower energy
                     
-                elif disease == 'Anxiety Disorder':
-                    # Anxiety: increased micro-movements, faster speech
-                    facial_X[mask, 15:25] += 1.1  # Higher micro-movement variance
-                    speech_X[mask, 0:3] += 0.7    # Higher F0 variance
-                    speech_X[mask, 10:13] += 0.6  # Faster speech rate
-                    
-                elif disease == 'Bipolar Disorder':
-                    # Bipolar: variable expressivity and speech patterns
-                    facial_X[mask, 20:30] += 1.3  # High expression variance
-                    speech_X[mask, 0:5] += 1.0    # Variable prosody
-                    
-                elif disease == 'Schizophrenia':
-                    # Schizophrenia: reduced affect, disorganized speech
-                    facial_X[mask, 10:20] -= 1.0  # Flat affect
-                    speech_X[mask, 15:20] += 0.9  # Disorganized patterns
-                    
-                elif disease == 'Dementia':
-                    # Dementia: progressive changes in expression and speech
-                    facial_X[mask, 25:35] -= 0.9  # Reduced complex expressions
-                    speech_X[mask, 20:25] -= 1.1  # Word-finding difficulties
+
                 
                 # Add noise to make patterns more realistic
                 facial_X[mask] += np.random.normal(0, 0.3, (np.sum(mask), n_facial_features))

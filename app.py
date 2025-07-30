@@ -498,11 +498,11 @@ def neuropsychiatric_analysis_tab():
     """Handle advanced neuropsychiatric and metabolic disease analysis using multimodal features."""
     st.header("🧠 Neuropsychiatric & Metabolic Disease Analysis")
     st.markdown("""
-    Advanced AI analysis for neuropsychiatric and metabolic conditions using multimodal behavioral patterns:
+    Advanced AI analysis for specific neuropsychiatric and metabolic conditions using multimodal behavioral patterns:
     - **Facial Micro-expressions**: Analyze subtle facial movements and expressions
     - **Speech Paralinguistics**: Examine prosody, fluency, and vocal patterns
     - **Supported Languages**: English and Telugu
-    - **Target Conditions**: Depression, Parkinson's Disease, Hypothyroidism, Anxiety, Bipolar Disorder, and more
+    - **Target Conditions**: Depression, Parkinson's Disease, Hypothyroidism
     """)
     
     # Language selection
@@ -663,16 +663,36 @@ def auto_process_neuropsychiatric_video(video_path: str, video_name: str, langua
             
             # Multimodal prediction - Final Diagnosis
             if 'error' not in facial_features:
-                st.subheader("🎯 FINAL DIAGNOSIS")
+                st.subheader("🎯 FINAL PREDICTION RESULTS")
                 multimodal_prediction = neuropsych_classifier.predict_multimodal(facial_features, combined_speech_features)
                 
-                # Highlight the final diagnosis prominently
+                # Show all possible labels and their predictions
+                all_probs = multimodal_prediction.get('all_probabilities', {})
                 predicted_disease = multimodal_prediction.get('predicted_class', 'Unknown')
                 confidence_level = multimodal_prediction.get('confidence', 0)
                 
-                # Create prominent disease announcement
+                # Display prediction results for all 4 target labels
+                st.markdown("### 📊 Label Predictions:")
+                
+                # Create prediction results table
+                prediction_results = []
+                for disease in ['Healthy', 'Depression', 'Parkinson\'s Disease', 'Hypothyroidism']:
+                    probability = all_probs.get(disease, 0)
+                    is_predicted = (disease == predicted_disease)
+                    prediction_results.append({
+                        'Label': disease,
+                        'Probability': f"{probability:.1%}",
+                        'Predicted': "✅ YES" if is_predicted else "❌ No",
+                        'Status': "SELECTED" if is_predicted else ""
+                    })
+                
+                pred_df = pd.DataFrame(prediction_results)
+                st.dataframe(pred_df, use_container_width=True)
+                
+                # Highlight the final prediction prominently
+                st.markdown("### 🎯 FINAL PREDICTION:")
                 if predicted_disease != 'Healthy':
-                    st.error(f"🚨 **DISEASE DETECTED: {predicted_disease.upper()}**")
+                    st.error(f"🚨 **PREDICTED LABEL: {predicted_disease.upper()}**")
                     st.warning(f"🔍 **CONFIDENCE: {confidence_level:.1%}**")
                     
                     # Add severity assessment
@@ -683,7 +703,7 @@ def auto_process_neuropsychiatric_video(video_path: str, video_name: str, langua
                     else:
                         st.info("⚠️ **LOW CONFIDENCE - MONITORING RECOMMENDED**")
                 else:
-                    st.success(f"✅ **NO DISEASE DETECTED: {predicted_disease}**")
+                    st.success(f"✅ **PREDICTED LABEL: {predicted_disease.upper()}**")
                     st.info(f"🔍 **CONFIDENCE: {confidence_level:.1%}**")
                 
                 # Display final results
@@ -997,38 +1017,26 @@ def generate_clinical_recommendations(condition: str, confidence: float, languag
     
     if 'depression' in condition:
         recommendations.extend([
-            "🧘 Consider psychological counseling or therapy sessions",
-            "💊 Evaluation by a psychiatrist for potential medication",
-            "🏃‍♂️ Regular exercise and social activities may help",
-            "📞 National suicide prevention lifeline: Available 24/7"
+            "🧘 Psychological counseling or therapy sessions recommended",
+            "💊 Psychiatric evaluation for potential medication",
+            "🏃‍♂️ Regular exercise and social activities beneficial",
+            "📞 Crisis support: National suicide prevention lifeline available 24/7"
         ])
     elif 'parkinson' in condition:
         recommendations.extend([
-            "🧠 Neurological evaluation by movement disorder specialist",
-            "💪 Physical therapy and regular exercise program",
-            "🎯 Occupational therapy for daily activities",
-            "👥 Support groups for patients and families"
+            "🧠 Immediate neurological evaluation by movement disorder specialist",
+            "💪 Physical therapy and structured exercise program essential",
+            "🎯 Occupational therapy for daily living activities",
+            "💊 Dopamine replacement therapy consultation",
+            "👥 Patient and family support groups"
         ])
     elif 'hypothyroid' in condition:
         recommendations.extend([
-            "🧪 Thyroid function tests (TSH, T3, T4)",
-            "💊 Endocrinology consultation for hormone therapy",
-            "🥗 Dietary consultation for nutrition management",
-            "📅 Regular monitoring of thyroid levels"
-        ])
-    elif 'anxiety' in condition:
-        recommendations.extend([
-            "🧘‍♀️ Cognitive Behavioral Therapy (CBT)",
-            "💊 Psychiatric evaluation for medication if needed",
-            "🌱 Stress reduction techniques and mindfulness",
-            "🏃‍♀️ Regular physical activity and relaxation"
-        ])
-    elif 'bipolar' in condition:
-        recommendations.extend([
-            "🧠 Psychiatric evaluation for mood stabilizers",
-            "💊 Medication compliance monitoring",
-            "👥 Family therapy and support systems",
-            "📚 Patient education about condition management"
+            "🧪 Comprehensive thyroid function tests (TSH, Free T3, Free T4)",
+            "💊 Endocrinology consultation for hormone replacement therapy",
+            "🥗 Nutritional counseling for iodine and selenium intake",
+            "📅 Regular monitoring every 6-8 weeks initially",
+            "⚡ Monitor for cardiac and metabolic complications"
         ])
     
     if language.lower() in ['telugu', 'multilingual']:
