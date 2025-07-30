@@ -1,7 +1,14 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from moviepy.editor import VideoFileClip
+# Handle moviepy import gracefully
+MOVIEPY_AVAILABLE = False
+try:
+    from moviepy.editor import VideoFileClip
+    MOVIEPY_AVAILABLE = True
+except ImportError:
+    # Will use ffmpeg fallback instead
+    VideoFileClip = None
 import librosa
 import streamlit as st
 from typing import Tuple, Optional, List, Dict
@@ -51,11 +58,16 @@ class VideoProcessor:
     def extract_audio_from_video(self, file_path: str) -> Tuple[Optional[np.ndarray], Optional[int]]:
         """Extract audio from video file and return audio data and sample rate."""
         try:
+            if not MOVIEPY_AVAILABLE:
+                # Fallback to ffmpeg directly
+                return self._extract_audio_with_ffmpeg(file_path)
+            
             # Use moviepy to extract audio
             video = VideoFileClip(file_path)
             
             if video.audio is None:
                 st.warning("No audio track found in the video file.")
+                video.close()
                 return None, None
             
             # Create temporary audio file
@@ -73,6 +85,41 @@ class VideoProcessor:
             return audio_data, sample_rate
         except Exception as e:
             st.error(f"Error extracting audio from video: {str(e)}")
+            return None, None
+    
+    def _extract_audio_with_ffmpeg(self, file_path: str) -> Tuple[Optional[np.ndarray], Optional[int]]:
+        """Fallback method to extract audio using ffmpeg directly."""
+        try:
+            # Create temporary audio file
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
+                temp_audio_path = temp_audio.name
+            
+            # Use ffmpeg to extract audio
+            import subprocess
+            cmd = [
+                'ffmpeg', '-i', file_path, 
+                '-vn', '-acodec', 'pcm_s16le', 
+                '-ar', '22050', '-ac', '1', 
+                '-y', temp_audio_path
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                st.warning("No audio track found or could not extract audio.")
+                if os.path.exists(temp_audio_path):
+                    os.unlink(temp_audio_path)
+                return None, None
+            
+            # Load audio using librosa
+            audio_data, sample_rate = librosa.load(temp_audio_path, sr=None)
+            
+            # Clean up
+            os.unlink(temp_audio_path)
+            
+            return audio_data, sample_rate
+        except Exception as e:
+            st.error(f"Error extracting audio with ffmpeg: {str(e)}")
             return None, None
     
     def extract_frames(self, file_path: str, num_frames: int = 10, method: str = 'uniform') -> List[np.ndarray]:
