@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a Streamlit-based web application that provides AI-powered medical diagnostic assistance through audio and image analysis. The application is designed as a demonstration system that can analyze audio files (cough sounds, breathing patterns) and medical images to provide diagnostic insights. The system emphasizes that it's for demonstration purposes only and should not replace professional medical consultation.
+This is a Streamlit-based web application that provides AI-powered medical diagnostic assistance through multimodal analysis including audio, image, and video processing. The application now features advanced neuropsychiatric and metabolic disease detection using facial micro-expressions and speech paralinguistics analysis. The system supports both English and Telugu languages and can analyze conditions like depression, Parkinson's disease, hypothyroidism, anxiety disorders, and more. The system emphasizes that it's for research and demonstration purposes only and should not replace professional medical consultation.
 
 ## User Preferences
 
@@ -49,13 +49,32 @@ The application follows a modular architecture with clear separation of concerns
   - Medical image enhancement and analysis
 
 ### 4. Machine Learning Models (`utils/ml_models.py`)
-- **Purpose**: Provides AI classification capabilities
+- **Purpose**: Provides AI classification capabilities for basic medical conditions
 - **Technology**: Scikit-learn for machine learning algorithms
 - **Architecture**: 
   - Separate classifiers for audio and image analysis
   - RandomForestClassifier as the base algorithm
   - StandardScaler for feature normalization
 - **Classes**: Supports 6 medical conditions including Normal Breathing, Asthma, Pneumonia, Bronchitis, COPD, and COVID-19 symptoms
+
+### 5. Video Processing Module (`utils/video_processor.py`)
+- **Purpose**: Handles video file processing for extracting audio and frames
+- **Technology**: OpenCV for video processing, FFmpeg for audio extraction fallback
+- **Features**:
+  - Video information extraction
+  - Frame extraction (uniform sampling and key frame detection)
+  - Audio extraction from video files
+  - Quality analysis of extracted frames
+
+### 6. Multimodal Neuropsychiatric Analysis (`utils/multimodal_processor.py`)
+- **Purpose**: Advanced analysis for neuropsychiatric and metabolic diseases
+- **Technology**: OpenCV for facial analysis, Librosa for speech processing
+- **Components**:
+  - **FacialMicroExpressionAnalyzer**: Detects and analyzes facial micro-expressions
+  - **SpeechParalinguisticsAnalyzer**: Analyzes prosody, fluency, and vocal patterns
+  - **NeuropsychiatricDiseaseClassifier**: Multimodal classification system
+- **Languages**: English and Telugu support
+- **Conditions**: Depression, Parkinson's Disease, Hypothyroidism, Anxiety, Bipolar Disorder, Schizophrenia, Dementia
 
 ## Data Flow
 
