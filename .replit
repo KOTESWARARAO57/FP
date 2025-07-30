@@ -44,3 +44,6 @@ args = "uv add librosa matplotlib opencv-python scikit-learn plotly"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[agent]
+integrations = ["python_openai==1.0.0"]

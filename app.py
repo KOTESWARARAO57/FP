@@ -13,6 +13,7 @@ from utils.multimodal_processor import (
     SpeechParalinguisticsAnalyzer, 
     NeuropsychiatricDiseaseClassifier
 )
+from utils.speech_to_text_analyzer import SpeechToTextAnalyzer
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
@@ -46,10 +47,16 @@ def load_neuropsychiatric_system():
             SpeechParalinguisticsAnalyzer(), 
             NeuropsychiatricDiseaseClassifier())
 
+@st.cache_resource
+def load_speech_to_text_system():
+    """Load and cache the speech-to-text analysis system."""
+    return SpeechToTextAnalyzer()
+
 # Load systems
 medical_ai = load_medical_ai_system()
 audio_processor, image_processor, video_processor = load_processors()
 facial_analyzer, speech_analyzer, neuropsych_classifier = load_neuropsychiatric_system()
+speech_to_text_analyzer = load_speech_to_text_system()
 
 def main():
     """Main application function."""
@@ -66,7 +73,7 @@ def main():
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Choose Analysis Type:",
-        ["Audio Analysis", "Image Analysis", "Video Analysis", "Neuropsychiatric Analysis", "Combined Analysis"]
+        ["Audio Analysis", "Image Analysis", "Video Analysis", "Speech-to-Text Analysis", "Neuropsychiatric Analysis", "Combined Analysis"]
     )
     
     # Create tabs based on selection
@@ -76,6 +83,8 @@ def main():
         image_analysis_tab()
     elif analysis_type == "Video Analysis":
         video_analysis_tab()
+    elif analysis_type == "Speech-to-Text Analysis":
+        speech_to_text_analysis_tab()
     elif analysis_type == "Neuropsychiatric Analysis":
         neuropsychiatric_analysis_tab()
     else:
@@ -493,6 +502,242 @@ def process_video_file(video_path: str, video_name: str):
                     display_prediction_results(audio_prediction, "audio")
             else:
                 st.warning("No audio track found in the video or audio extraction failed.")
+
+def speech_to_text_analysis_tab():
+    """Handle speech-to-text conversion and text-based medical analysis."""
+    st.header("🗣️ Speech-to-Text Medical Analysis")
+    st.markdown("""
+    Convert speech to text and analyze linguistic patterns for medical diagnosis:
+    - **Speech Recognition**: Convert audio to text using advanced speech recognition
+    - **Text Analysis**: Analyze linguistic patterns, sentiment, and medical keywords
+    - **Medical Prediction**: Predict conditions based on speech content and patterns
+    - **Target Labels**: Healthy, Depression, Parkinson's Disease, Hypothyroidism
+    """)
+    
+    # Language selection for speech recognition
+    st.subheader("🌐 Language Selection")
+    language_options = {
+        "English": "en-US",
+        "Telugu": "te-IN",
+        "English (UK)": "en-GB",
+        "English (Australia)": "en-AU"
+    }
+    selected_language = st.selectbox("Select speech language:", list(language_options.keys()))
+    language_code = language_options[selected_language]
+    
+    # Input options
+    input_col1, input_col2 = st.columns(2)
+    
+    with input_col1:
+        st.subheader("📁 Upload Audio File")
+        uploaded_audio = st.file_uploader(
+            "Choose an audio file for speech-to-text analysis",
+            type=['wav', 'mp3', 'm4a', 'flac'],
+            key="stt_audio_upload"
+        )
+        
+        if uploaded_audio is not None:
+            process_speech_to_text_file(uploaded_audio, language_code, selected_language)
+    
+    with input_col2:
+        st.subheader("📝 Direct Text Analysis")
+        st.markdown("Skip speech recognition and directly analyze text:")
+        
+        text_input = st.text_area(
+            "Enter text for medical analysis:",
+            height=150,
+            placeholder="Type or paste text here to analyze for medical conditions..."
+        )
+        
+        if st.button("🔍 Analyze Text", type="primary") and text_input.strip():
+            analyze_text_directly(text_input, selected_language)
+
+def process_speech_to_text_file(uploaded_audio, language_code: str, language_name: str):
+    """Process uploaded audio file for speech-to-text analysis."""
+    st.success(f"Processing audio for speech-to-text analysis in {language_name}...")
+    
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
+        tmp_file.write(uploaded_audio.getvalue())
+        temp_audio_path = tmp_file.name
+    
+    try:
+        # Show audio player
+        st.audio(uploaded_audio, format='audio/wav')
+        
+        if st.button("🎤 Convert Speech to Text & Analyze", type="primary", key="stt_analyze"):
+            with st.spinner("Converting speech to text and analyzing..."):
+                # Perform speech-to-text analysis
+                result = speech_to_text_analyzer.analyze_speech_to_text(temp_audio_path, language_code)
+                
+                if result['success']:
+                    # Display transcription results
+                    st.subheader("📝 Speech Transcription Results")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Recognition Method", result['speech_to_text_method'])
+                    with col2:
+                        st.metric("Speech Quality", result['speech_confidence'])
+                    with col3:
+                        st.metric("Language", language_name)
+                    
+                    # Show transcribed text
+                    st.subheader("📋 Transcribed Text")
+                    st.text_area("Extracted Text:", value=result['transcribed_text'], height=100, disabled=True)
+                    
+                    # Display text analysis results
+                    display_text_analysis_results(result, result['transcribed_text'])
+                    
+                else:
+                    st.error(f"Speech-to-text conversion failed: {result['error']}")
+                    st.info("Try:")
+                    st.info("• Using clearer audio with less background noise")
+                    st.info("• Ensuring the audio contains speech in the selected language")
+                    st.info("• Using WAV format for better recognition accuracy")
+    
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_audio_path):
+            os.unlink(temp_audio_path)
+
+def analyze_text_directly(text: str, language_name: str):
+    """Analyze text directly without speech recognition."""
+    st.success(f"Analyzing text for medical indicators...")
+    
+    with st.spinner("Performing text analysis..."):
+        # Get prediction from text
+        result = speech_to_text_analyzer.predict_from_text(text)
+        
+        if 'error' not in result:
+            # Create result dictionary similar to speech-to-text format
+            analysis_result = {
+                'success': True,
+                'transcribed_text': text,
+                'speech_to_text_method': 'Direct Text Input',
+                'speech_confidence': 'N/A',
+                'predicted_class': result['predicted_class'],
+                'prediction_confidence': result['confidence'],
+                'all_probabilities': result.get('all_probabilities', {}),
+                'text_features': result.get('text_features', {}),
+                'language': language_name
+            }
+            
+            display_text_analysis_results(analysis_result, text)
+        else:
+            st.error(f"Text analysis failed: {result['error']}")
+
+def display_text_analysis_results(result: Dict, text: str):
+    """Display comprehensive text analysis results."""
+    
+    # Text features analysis
+    st.subheader("📊 Text Analysis Features")
+    text_features = result.get('text_features', {})
+    
+    if text_features:
+        # Create features dataframe
+        feature_metrics = [
+            {"Feature": "Word Count", "Value": text_features.get('word_count', 0)},
+            {"Feature": "Sentence Count", "Value": text_features.get('sentence_count', 0)},
+            {"Feature": "Average Word Length", "Value": f"{text_features.get('avg_word_length', 0):.1f}"},
+            {"Feature": "Sentiment Polarity", "Value": f"{text_features.get('sentiment_polarity', 0):.3f}"},
+            {"Feature": "Medical Keywords", "Value": text_features.get('medical_keywords_count', 0)},
+            {"Feature": "Coherence Score", "Value": f"{text_features.get('coherence_score', 0):.3f}"}
+        ]
+        
+        features_df = pd.DataFrame(feature_metrics)
+        st.dataframe(features_df, use_container_width=True)
+        
+        # Disease-specific indicators
+        st.subheader("🔍 Condition-Specific Indicators")
+        indicators_data = [
+            {"Condition": "Depression", "Keywords Found": text_features.get('depression_indicators', 0)},
+            {"Condition": "Parkinson's Disease", "Keywords Found": text_features.get('parkinson_indicators', 0)},
+            {"Condition": "Hypothyroidism", "Keywords Found": text_features.get('hypothyroid_indicators', 0)},
+            {"Condition": "Healthy", "Keywords Found": text_features.get('healthy_indicators', 0)}
+        ]
+        
+        indicators_df = pd.DataFrame(indicators_data)
+        st.dataframe(indicators_df, use_container_width=True)
+    
+    # Prediction results
+    st.subheader("🎯 MEDICAL PREDICTION FROM TEXT")
+    
+    predicted_condition = result['predicted_class']
+    confidence = result['prediction_confidence']
+    all_probs = result.get('all_probabilities', {})
+    
+    # Show prediction table for all labels
+    st.markdown("### 📊 Label Predictions from Text Analysis:")
+    
+    prediction_results = []
+    target_labels = ['Healthy', 'Depression', 'Parkinson\'s Disease', 'Hypothyroidism']
+    
+    for label in target_labels:
+        probability = all_probs.get(label, 0)
+        is_predicted = (label == predicted_condition)
+        prediction_results.append({
+            'Label': label,
+            'Probability': f"{probability:.1%}",
+            'Predicted': "✅ YES" if is_predicted else "❌ No",
+            'Status': "SELECTED" if is_predicted else ""
+        })
+    
+    pred_df = pd.DataFrame(prediction_results)
+    st.dataframe(pred_df, use_container_width=True)
+    
+    # Highlight final prediction
+    st.markdown("### 🎯 FINAL TEXT-BASED PREDICTION:")
+    
+    if predicted_condition != 'Healthy':
+        st.error(f"🚨 **TEXT ANALYSIS INDICATES: {predicted_condition.upper()}**")
+        st.warning(f"🔍 **CONFIDENCE: {confidence:.1%}**")
+        
+        # Confidence-based recommendations
+        if confidence > 0.8:
+            st.error("⚠️ **HIGH CONFIDENCE - Consider medical consultation based on speech patterns**")
+        elif confidence > 0.6:
+            st.warning("⚠️ **MODERATE CONFIDENCE - Monitor symptoms and consider evaluation**")
+        else:
+            st.info("⚠️ **LOW CONFIDENCE - Text patterns suggest possible indicators**")
+    else:
+        st.success(f"✅ **TEXT ANALYSIS INDICATES: {predicted_condition.upper()}**")
+        st.info(f"🔍 **CONFIDENCE: {confidence:.1%}**")
+    
+    # Additional insights
+    st.subheader("💡 Text Analysis Insights")
+    
+    insights = []
+    
+    if text_features:
+        sentiment = text_features.get('sentiment_polarity', 0)
+        if sentiment < -0.3:
+            insights.append("🔍 Text shows negative sentiment patterns")
+        elif sentiment > 0.3:
+            insights.append("🔍 Text shows positive sentiment patterns")
+        else:
+            insights.append("🔍 Text shows neutral sentiment")
+        
+        coherence = text_features.get('coherence_score', 0)
+        if coherence < 0.4:
+            insights.append("🔍 Text structure shows some disorganization")
+        elif coherence > 0.7:
+            insights.append("🔍 Text structure is well-organized and coherent")
+        
+        if text_features.get('repetitive_words', 0) > 3:
+            insights.append("🔍 Text contains repetitive word patterns")
+        
+        if text_features.get('incomplete_sentences', 0) > 0:
+            insights.append("🔍 Text contains incomplete sentence structures")
+    
+    if not insights:
+        insights.append("🔍 Text analysis completed - no significant linguistic anomalies detected")
+    
+    for insight in insights:
+        st.info(insight)
+    
+    # Clinical note
+    st.warning("⚠️ This analysis is based on linguistic patterns and should not replace professional medical assessment.")
 
 def neuropsychiatric_analysis_tab():
     """Handle advanced neuropsychiatric and metabolic disease analysis using multimodal features."""
