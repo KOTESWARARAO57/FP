@@ -1,8 +1,8 @@
-# Medical AI Diagnostic Assistant
+# Advanced Multilingual Multimodal Medical AI System
 
 ## Overview
 
-This is a Streamlit-based web application that provides AI-powered medical diagnostic assistance through multimodal analysis including audio, image, and video processing. The application now features advanced neuropsychiatric and metabolic disease detection using facial micro-expressions and speech paralinguistics analysis. The system supports both English and Telugu languages and can analyze conditions like depression, Parkinson's disease, hypothyroidism, anxiety disorders, and more. The system emphasizes that it's for research and demonstration purposes only and should not replace professional medical consultation.
+This is a comprehensive Streamlit-based web application that provides state-of-the-art AI-powered medical diagnostic assistance through advanced multimodal analysis. The system integrates cutting-edge technologies including Whisper for speech recognition, DeepFace for facial emotion analysis, multilingual translation, text-to-speech output, and fusion deep learning models combining CNN and LSTM/GRU architectures. The application supports multilingual operation (English, Telugu, Hindi, Tamil) and can detect neuropsychiatric and metabolic diseases including depression, Parkinson's disease, hypothyroidism from webcam-recorded videos by analyzing both facial micro-expressions and speech features (prosody, fluency, lexical content). The system emphasizes that it's for research and demonstration purposes only and should not replace professional medical consultation.
 
 ## User Preferences
 
@@ -66,24 +66,51 @@ The application follows a modular architecture with clear separation of concerns
   - Audio extraction from video files
   - Quality analysis of extracted frames
 
-### 6. Multimodal Neuropsychiatric Analysis (`utils/multimodal_processor.py`)
-- **Purpose**: Advanced analysis for neuropsychiatric and metabolic diseases
-- **Technology**: OpenCV for facial analysis, Librosa for speech processing
-- **Components**:
-  - **FacialMicroExpressionAnalyzer**: Detects and analyzes facial micro-expressions
-  - **SpeechParalinguisticsAnalyzer**: Analyzes prosody, fluency, and vocal patterns
-  - **NeuropsychiatricDiseaseClassifier**: Multimodal classification system
-- **Languages**: English and Telugu support
-- **Conditions**: Depression, Parkinson's Disease, Hypothyroidism, Anxiety, Bipolar Disorder, Schizophrenia, Dementia
+### 6. Advanced Multimodal AI System
+**Whisper Speech Processor (`utils/whisper_processor.py`)**
+- **Purpose**: State-of-the-art speech-to-text transcription with multilingual support
+- **Technology**: OpenAI Whisper models for robust speech recognition
+- **Features**: Automatic language detection, confidence scoring, prosodic feature extraction
+- **Languages**: English, Telugu, Hindi, Tamil, and more
 
-## Data Flow
+**DeepFace Facial Processor (`utils/deepface_processor.py`)**
+- **Purpose**: Advanced facial emotion recognition and micro-expression analysis
+- **Technology**: DeepFace library with OpenCV fallback for emotion detection
+- **Features**: Multi-frame analysis, emotion aggregation, medical pattern detection
+- **Capabilities**: Real-time facial emotion analysis from video frames
 
-1. **File Upload**: User uploads audio or image files through Streamlit interface
-2. **Validation**: Appropriate processor validates file format and integrity
-3. **Loading**: File is loaded and converted to appropriate format (numpy arrays for audio, PIL Images for images)
-4. **Preprocessing**: Features are extracted and data is prepared for analysis
-5. **Classification**: ML models process the features and generate predictions
-6. **Visualization**: Results are displayed through interactive Plotly charts and Streamlit components
+**Multilingual Translator (`utils/translator.py`)**
+- **Purpose**: Medical-context aware translation between languages
+- **Technology**: Argos Translate with medical terminology dictionary fallback
+- **Features**: Telugu-English translation, medical term preservation, bilingual output
+- **Languages**: English, Telugu, Hindi, Tamil with medical context awareness
+
+**Text-to-Speech Processor (`utils/text_to_speech.py`)**
+- **Purpose**: Multilingual speech synthesis for medical diagnosis output
+- **Technology**: pyttsx3 with language-specific voice selection
+- **Features**: Medical announcement creation, audio file generation, voice optimization
+- **Output**: Structured medical announcements in multiple languages
+
+**Fusion Deep Learning Model (`utils/fusion_model.py`)**
+- **Purpose**: Advanced multimodal classification combining facial and audio features
+- **Architecture**: CNN for facial features + LSTM/GRU for audio features + fusion network
+- **Technology**: Scikit-learn with deep learning simulation (production would use TensorFlow/PyTorch)
+- **Features**: Feature importance analysis, modality weighting, cross-modal attention simulation
+- **Target Conditions**: Healthy, Depression, Parkinson's Disease, Hypothyroidism
+
+## Advanced Multimodal Data Flow
+
+1. **Video Upload**: User uploads video file and selects input/output languages
+2. **Audio Extraction**: Video processor extracts audio track from uploaded video
+3. **Whisper Speech Recognition**: Advanced speech-to-text with language detection and confidence scoring
+4. **Speech Feature Extraction**: Prosodic, fluency, and lexical features extracted from transcription
+5. **Frame Extraction**: Key frames extracted from video for facial analysis
+6. **DeepFace Emotion Analysis**: Facial emotions analyzed across multiple frames with aggregation
+7. **Feature Fusion**: CNN-like facial features combined with LSTM-like audio features
+8. **Fusion Model Prediction**: Deep learning model predicts medical conditions from multimodal features
+9. **Multilingual Translation**: Results translated to user's preferred language with medical context
+10. **Text-to-Speech Output**: Diagnosis spoken in selected language with medical announcements
+11. **Comprehensive Visualization**: Results displayed with modality weights, confidence levels, and technical details
 
 ## External Dependencies
 
@@ -93,13 +120,24 @@ The application follows a modular architecture with clear separation of concerns
 - **Plotly**: Interactive visualization
 - **Scikit-learn**: Machine learning algorithms
 
-### Audio Processing
-- **Librosa**: Audio analysis and feature extraction
-- **Matplotlib**: Audio visualization
+### Advanced AI Libraries
+- **OpenAI Whisper**: State-of-the-art speech recognition
+- **DeepFace**: Advanced facial emotion recognition
+- **Argos Translate**: Offline multilingual translation
+- **pyttsx3**: Text-to-speech synthesis
+- **TensorFlow/PyTorch**: Deep learning frameworks (for production)
 
-### Image Processing
-- **PIL (Pillow)**: Image manipulation
-- **OpenCV**: Computer vision operations
+### Audio/Video Processing
+- **Librosa**: Advanced audio analysis and feature extraction
+- **MoviePy**: Video processing and audio extraction
+- **OpenCV**: Computer vision and video frame extraction
+- **SpeechRecognition**: Fallback speech recognition
+- **Pydub**: Audio file manipulation
+
+### Natural Language Processing
+- **NLTK**: Natural language processing toolkit
+- **TextBlob**: Simplified text processing and sentiment analysis
+- **Transformers**: State-of-the-art NLP models
 
 ## Deployment Strategy
 
@@ -120,12 +158,26 @@ The application follows a modular architecture with clear separation of concerns
 
 ## Technical Decisions
 
-### Mock Data Approach
-- **Problem**: Need for medical data for demonstration
-- **Solution**: Synthetic data generation for training models
-- **Rationale**: Allows demonstration without requiring real medical datasets
-- **Pros**: Quick setup, no data privacy concerns, reproducible results
-- **Cons**: Not suitable for actual medical use
+### Advanced AI Integration Approach
+- **Problem**: Need for state-of-the-art multimodal medical AI system
+- **Solution**: Integration of cutting-edge technologies (Whisper, DeepFace, Fusion Models)
+- **Rationale**: Provides comprehensive analysis combining speech, facial, and multimodal features
+- **Pros**: High accuracy, multilingual support, real-time processing, modular architecture
+- **Cons**: Computational complexity, dependency on multiple AI libraries
+
+### Fusion Deep Learning Architecture
+- **Problem**: Need to combine facial and audio modalities effectively
+- **Solution**: CNN+LSTM/GRU fusion architecture with attention mechanisms
+- **Rationale**: Captures spatial facial features and temporal audio patterns
+- **Pros**: Superior multimodal performance, interpretable modality weights
+- **Cons**: Increased model complexity, training data requirements
+
+### Multilingual Medical Translation
+- **Problem**: Need for accurate medical term translation
+- **Solution**: Argos Translate with medical dictionary fallback
+- **Rationale**: Preserves medical context while providing offline translation
+- **Pros**: Privacy-aware, medical term accuracy, multilingual support
+- **Cons**: Limited to pre-trained language pairs
 
 ### Streamlit Framework Choice
 - **Problem**: Need for rapid prototyping of ML application

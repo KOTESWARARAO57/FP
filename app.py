@@ -14,6 +14,11 @@ from utils.multimodal_processor import (
     NeuropsychiatricDiseaseClassifier
 )
 from utils.speech_to_text_analyzer import SpeechToTextAnalyzer
+from utils.whisper_processor import WhisperProcessor
+from utils.deepface_processor import DeepFaceProcessor
+from utils.translator import MultilingualTranslator
+from utils.text_to_speech import TextToSpeechProcessor
+from utils.fusion_model import FusionDeepLearningModel
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
@@ -52,11 +57,21 @@ def load_speech_to_text_system():
     """Load and cache the speech-to-text analysis system."""
     return SpeechToTextAnalyzer()
 
+@st.cache_resource
+def load_advanced_multimodal_system():
+    """Load and cache the advanced multimodal AI system."""
+    return (WhisperProcessor(), 
+            DeepFaceProcessor(), 
+            MultilingualTranslator(), 
+            TextToSpeechProcessor(),
+            FusionDeepLearningModel())
+
 # Load systems
 medical_ai = load_medical_ai_system()
 audio_processor, image_processor, video_processor = load_processors()
 facial_analyzer, speech_analyzer, neuropsych_classifier = load_neuropsychiatric_system()
 speech_to_text_analyzer = load_speech_to_text_system()
+whisper_processor, deepface_processor, translator, tts_processor, fusion_model = load_advanced_multimodal_system()
 
 def main():
     """Main application function."""
@@ -73,7 +88,7 @@ def main():
     st.sidebar.title("Navigation")
     analysis_type = st.sidebar.selectbox(
         "Choose Analysis Type:",
-        ["Audio Analysis", "Image Analysis", "Video Analysis", "Speech-to-Text Analysis", "Neuropsychiatric Analysis", "Combined Analysis"]
+        ["Audio Analysis", "Image Analysis", "Video Analysis", "Speech-to-Text Analysis", "Advanced Multimodal Analysis", "Neuropsychiatric Analysis", "Combined Analysis"]
     )
     
     # Create tabs based on selection
@@ -85,6 +100,8 @@ def main():
         video_analysis_tab()
     elif analysis_type == "Speech-to-Text Analysis":
         speech_to_text_analysis_tab()
+    elif analysis_type == "Advanced Multimodal Analysis":
+        advanced_multimodal_analysis_tab()
     elif analysis_type == "Neuropsychiatric Analysis":
         neuropsychiatric_analysis_tab()
     else:
@@ -738,6 +755,371 @@ def display_text_analysis_results(result: Dict, text: str):
     
     # Clinical note
     st.warning("⚠️ This analysis is based on linguistic patterns and should not replace professional medical assessment.")
+
+def advanced_multimodal_analysis_tab():
+    """Handle advanced multimodal AI analysis with Whisper, DeepFace, and Fusion models."""
+    st.header("🤖 Advanced Multimodal AI Analysis")
+    st.markdown("""
+    **Comprehensive multilingual, multimodal AI system for neuropsychiatric disease detection:**
+    - **🎤 Whisper Speech-to-Text**: Advanced speech recognition with multilingual support
+    - **😊 DeepFace Emotion Analysis**: Facial micro-expression detection and emotion recognition
+    - **🌐 Multilingual Translation**: Telugu-English translation with medical context
+    - **🔊 Text-to-Speech Output**: Diagnosis results spoken in selected language
+    - **🧠 Fusion Deep Learning**: CNN+LSTM model combining facial and audio features
+    
+    **Target Diseases:** Healthy, Depression, Parkinson's Disease, Hypothyroidism
+    """)
+    
+    # Language selection
+    st.subheader("🌐 Language Selection")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        input_language = st.selectbox(
+            "Input Language (for speech recognition):",
+            ["English", "Telugu", "Hindi", "Tamil"],
+            help="Language of the video/audio content"
+        )
+        
+    with col2:
+        output_language = st.selectbox(
+            "Output Language (for results):",
+            ["English", "Telugu", "Hindi", "Tamil"],
+            help="Language for diagnosis results and speech output"
+        )
+    
+    # Map language names to codes
+    lang_codes = {
+        "English": "en",
+        "Telugu": "te", 
+        "Hindi": "hi",
+        "Tamil": "ta"
+    }
+    
+    input_lang_code = lang_codes.get(input_language, "en")
+    output_lang_code = lang_codes.get(output_language, "en")
+    
+    # Video upload and processing
+    st.subheader("📹 Video Upload for Multimodal Analysis")
+    uploaded_video = st.file_uploader(
+        "Upload video for comprehensive multimodal AI analysis",
+        type=['mp4', 'avi', 'mov', 'mkv'],
+        help="Upload a video containing speech and facial expressions"
+    )
+    
+    if uploaded_video is not None:
+        process_advanced_multimodal_video(uploaded_video, input_lang_code, output_lang_code, input_language, output_language)
+
+def process_advanced_multimodal_video(uploaded_video, input_lang_code: str, output_lang_code: str, input_language: str, output_language: str):
+    """Process video using advanced multimodal AI pipeline."""
+    st.success(f"Processing video with advanced AI pipeline...")
+    st.info(f"Input: {input_language} → Output: {output_language}")
+    
+    # Save uploaded video
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
+        tmp_video.write(uploaded_video.getvalue())
+        video_path = tmp_video.name
+    
+    try:
+        # Show video preview
+        st.video(uploaded_video)
+        
+        if st.button("🚀 Start Advanced Multimodal Analysis", type="primary", key="advanced_analysis"):
+            with st.spinner("Running comprehensive AI analysis..."):
+                
+                # Step 1: Extract audio from video
+                st.subheader("🎵 Step 1: Audio Extraction")
+                audio_info = video_processor.extract_audio_from_video(video_path)
+                
+                if audio_info and 'audio_path' in audio_info:
+                    audio_path = audio_info['audio_path']
+                    st.success("✅ Audio extracted successfully")
+                    
+                    # Step 2: Whisper speech-to-text
+                    st.subheader("🎤 Step 2: Whisper Speech Recognition")
+                    whisper_result = whisper_processor.transcribe_audio(audio_path, input_lang_code)
+                    
+                    if whisper_result['success']:
+                        st.success(f"✅ Speech transcribed using Whisper ({whisper_result['model_used']})")
+                        
+                        # Display transcription
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Detected Language", whisper_result['language_name'])
+                        with col2:
+                            st.metric("Confidence", f"{whisper_result['confidence']:.1%}")
+                        with col3:
+                            st.metric("Duration", f"{whisper_result['duration']:.1f}s")
+                        
+                        st.text_area("Transcribed Text:", value=whisper_result['text'], height=100, disabled=True)
+                        
+                        # Step 3: Extract speech features
+                        st.subheader("📊 Step 3: Advanced Speech Feature Extraction")
+                        speech_features = whisper_processor.extract_speech_features(audio_path, whisper_result)
+                        
+                        if speech_features:
+                            st.success("✅ Speech features extracted (prosody, fluency, lexical)")
+                            
+                            # Display key speech features
+                            feature_cols = st.columns(4)
+                            with feature_cols[0]:
+                                st.metric("Speech Rate", f"{speech_features.get('speech_rate', 0):.1f} WPM")
+                            with feature_cols[1]:
+                                st.metric("Pitch Mean", f"{speech_features.get('pitch_mean', 0):.1f} Hz")
+                            with feature_cols[2]:
+                                st.metric("Lexical Diversity", f"{speech_features.get('lexical_diversity', 0):.3f}")
+                            with feature_cols[3]:
+                                st.metric("Medical Keywords", speech_features.get('medical_keywords', 0))
+                        
+                        # Step 4: Extract frames and analyze faces
+                        st.subheader("😊 Step 4: DeepFace Facial Analysis")
+                        video_info = video_processor.extract_frames(video_path, max_frames=10)
+                        
+                        if video_info['success'] and video_info['frames']:
+                            # Analyze facial emotions in key frames
+                            facial_analysis_results = []
+                            
+                            progress_bar = st.progress(0)
+                            for i, frame_info in enumerate(video_info['frames'][:5]):  # Analyze first 5 frames
+                                progress_bar.progress((i + 1) / 5)
+                                
+                                frame_path = frame_info['path']
+                                emotion_result = deepface_processor.analyze_facial_emotions(frame_path)
+                                
+                                if emotion_result['success']:
+                                    facial_analysis_results.append(emotion_result)
+                            
+                            progress_bar.empty()
+                            
+                            if facial_analysis_results:
+                                st.success(f"✅ Facial emotions analyzed in {len(facial_analysis_results)} frames")
+                                
+                                # Aggregate facial features
+                                aggregated_facial_features = aggregate_facial_results(facial_analysis_results)
+                                
+                                # Display dominant emotions
+                                emotion_cols = st.columns(3)
+                                with emotion_cols[0]:
+                                    st.metric("Dominant Emotion", aggregated_facial_features.get('dominant_emotion', 'Unknown'))
+                                with emotion_cols[1]:
+                                    st.metric("Avg Confidence", f"{aggregated_facial_features.get('avg_confidence', 0):.1%}")
+                                with emotion_cols[2]:
+                                    st.metric("Faces Detected", f"{len(facial_analysis_results)}/5")
+                                
+                                # Step 5: Fusion Deep Learning Prediction
+                                st.subheader("🧠 Step 5: Fusion Deep Learning Model")
+                                
+                                # Get medical-relevant features for fusion
+                                facial_medical_features = deepface_processor.get_medical_facial_features(aggregated_facial_features)
+                                
+                                # Run fusion model
+                                fusion_result = fusion_model.predict_multimodal_fusion(facial_medical_features, speech_features)
+                                
+                                if fusion_result['success']:
+                                    st.success("✅ Fusion model prediction completed")
+                                    
+                                    # Display comprehensive results
+                                    display_advanced_multimodal_results(fusion_result, whisper_result, facial_analysis_results, output_lang_code, output_language)
+                                
+                                else:
+                                    st.error(f"Fusion model failed: {fusion_result['error']}")
+                            else:
+                                st.warning("No faces detected in video frames")
+                        else:
+                            st.warning("Failed to extract frames from video")
+                    else:
+                        st.error(f"Speech recognition failed: {whisper_result['error']}")
+                else:
+                    st.error("Failed to extract audio from video")
+    
+    finally:
+        # Cleanup
+        if os.path.exists(video_path):
+            os.unlink(video_path)
+
+def aggregate_facial_results(facial_results: List[Dict]) -> Dict:
+    """Aggregate facial emotion results across multiple frames."""
+    try:
+        if not facial_results:
+            return {}
+        
+        # Aggregate emotion scores
+        all_emotions = {}
+        total_confidence = 0.0
+        dominant_emotions = []
+        
+        for result in facial_results:
+            emotions = result.get('emotions', {})
+            confidence = result.get('confidence', 0.0)
+            dominant = result.get('dominant_emotion', 'neutral')
+            
+            for emotion, score in emotions.items():
+                if emotion not in all_emotions:
+                    all_emotions[emotion] = []
+                all_emotions[emotion].append(score)
+            
+            total_confidence += confidence
+            dominant_emotions.append(dominant)
+        
+        # Calculate average emotions
+        avg_emotions = {}
+        for emotion, scores in all_emotions.items():
+            avg_emotions[emotion] = sum(scores) / len(scores)
+        
+        # Find most common dominant emotion
+        from collections import Counter
+        emotion_counter = Counter(dominant_emotions)
+        most_common_emotion = emotion_counter.most_common(1)[0][0] if emotion_counter else 'neutral'
+        
+        return {
+            'emotions': avg_emotions,
+            'dominant_emotion': most_common_emotion,
+            'avg_confidence': total_confidence / len(facial_results),
+            'face_detected': True,
+            'frames_analyzed': len(facial_results)
+        }
+        
+    except Exception as e:
+        st.warning(f"Facial aggregation failed: {str(e)}")
+        return {}
+
+def display_advanced_multimodal_results(fusion_result: Dict, whisper_result: Dict, facial_results: List[Dict], output_lang_code: str, output_language: str):
+    """Display comprehensive multimodal analysis results."""
+    
+    # Main prediction results
+    st.subheader("🎯 FUSION AI PREDICTION RESULTS")
+    
+    predicted_condition = fusion_result['predicted_class']
+    confidence = fusion_result['confidence']
+    all_probs = fusion_result.get('all_probabilities', {})
+    
+    # Create comprehensive prediction table
+    st.markdown("### 📊 Multi-Modal Label Predictions:")
+    
+    prediction_results = []
+    target_labels = ['Healthy', 'Depression', 'Parkinson\'s Disease', 'Hypothyroidism']
+    
+    for label in target_labels:
+        probability = all_probs.get(label, 0)
+        is_predicted = (label == predicted_condition)
+        prediction_results.append({
+            'Label': label,
+            'Fusion Probability': f"{probability:.1%}",
+            'Facial Only': f"{fusion_result.get('facial_prediction', {}).get('probabilities', {}).get(label, 0):.1%}",
+            'Audio Only': f"{fusion_result.get('audio_prediction', {}).get('probabilities', {}).get(label, 0):.1%}",
+            'Final Prediction': "✅ SELECTED" if is_predicted else "❌ Not Selected"
+        })
+    
+    pred_df = pd.DataFrame(prediction_results)
+    st.dataframe(pred_df, use_container_width=True)
+    
+    # Highlight final prediction
+    st.markdown("### 🧠 FINAL FUSION AI DIAGNOSIS:")
+    
+    if predicted_condition != 'Healthy':
+        st.error(f"🚨 **FUSION AI INDICATES: {predicted_condition.upper()}**")
+        st.warning(f"🔍 **CONFIDENCE: {confidence:.1%}**")
+        
+        # Confidence-based recommendations
+        if confidence > 0.8:
+            st.error("⚠️ **HIGH CONFIDENCE - PROFESSIONAL MEDICAL EVALUATION STRONGLY RECOMMENDED**")
+        elif confidence > 0.6:
+            st.warning("⚠️ **MODERATE CONFIDENCE - MEDICAL CONSULTATION ADVISED**")
+        else:
+            st.info("⚠️ **LOW CONFIDENCE - MONITORING AND FOLLOW-UP SUGGESTED**")
+    else:
+        st.success(f"✅ **FUSION AI INDICATES: {predicted_condition.upper()}**")
+        st.info(f"🔍 **CONFIDENCE: {confidence:.1%}**")
+    
+    # Modality analysis
+    st.subheader("🔍 Modality Analysis")
+    modality_weights = fusion_result.get('modality_weights', {})
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Facial Contribution", f"{modality_weights.get('facial_weight', 0):.1%}")
+        st.metric("Facial Quality Score", f"{modality_weights.get('facial_quality', 0):.2f}")
+    
+    with col2:
+        st.metric("Audio Contribution", f"{modality_weights.get('audio_weight', 0):.1%}")
+        st.metric("Audio Quality Score", f"{modality_weights.get('audio_quality', 0):.2f}")
+    
+    # Translation and TTS
+    st.subheader("🌐 Multilingual Output")
+    
+    # Create diagnosis text
+    diagnosis_text = f"Medical analysis completed. The fusion AI system indicates {predicted_condition} with {confidence:.0%} confidence."
+    
+    if output_lang_code != 'en':
+        # Translate diagnosis
+        translation_result = translator.create_bilingual_output(diagnosis_text, output_lang_code)
+        
+        if translation_result['success']:
+            st.text_area("English Diagnosis:", value=translation_result['english_text'], height=60, disabled=True)
+            st.text_area(f"{output_language} Translation:", value=translation_result['translated_text'], height=60, disabled=True)
+            
+            # Text-to-Speech output
+            if st.button(f"🔊 Speak Diagnosis in {output_language}", key="tts_diagnosis"):
+                tts_result = tts_processor.speak_medical_diagnosis(fusion_result, output_lang_code, save_audio=True)
+                
+                if tts_result['success'] and tts_result['audio_file']:
+                    st.success(f"✅ Diagnosis spoken in {output_language}")
+                    
+                    # Play audio
+                    with open(tts_result['audio_file'], 'rb') as audio_file:
+                        audio_bytes = audio_file.read()
+                        st.audio(audio_bytes, format='audio/wav')
+                    
+                    # Cleanup audio file
+                    tts_processor.cleanup_audio_files([tts_result['audio_file']])
+                else:
+                    st.error(f"Text-to-speech failed: {tts_result.get('error', 'Unknown error')}")
+        else:
+            st.warning(f"Translation failed: {translation_result.get('error', 'Unknown error')}")
+    else:
+        st.text_area("Diagnosis:", value=diagnosis_text, height=60, disabled=True)
+        
+        # English TTS
+        if st.button("🔊 Speak Diagnosis in English", key="tts_english"):
+            tts_result = tts_processor.speak_medical_diagnosis(fusion_result, 'en', save_audio=True)
+            
+            if tts_result['success'] and tts_result['audio_file']:
+                st.success("✅ Diagnosis spoken in English")
+                
+                with open(tts_result['audio_file'], 'rb') as audio_file:
+                    audio_bytes = audio_file.read()
+                    st.audio(audio_bytes, format='audio/wav')
+                
+                tts_processor.cleanup_audio_files([tts_result['audio_file']])
+    
+    # Technical details
+    with st.expander("🔧 Technical Analysis Details"):
+        st.markdown("**Whisper Speech Recognition:**")
+        st.json({
+            'model': whisper_result.get('model_used', 'Unknown'),
+            'language_detected': whisper_result.get('language_name', 'Unknown'),
+            'transcription_confidence': whisper_result.get('confidence', 0),
+            'duration': whisper_result.get('duration', 0)
+        })
+        
+        st.markdown("**DeepFace Facial Analysis:**")
+        st.json({
+            'frames_analyzed': len(facial_results),
+            'analysis_method': facial_results[0].get('analysis_method', 'Unknown') if facial_results else 'None',
+            'average_confidence': sum(r.get('confidence', 0) for r in facial_results) / len(facial_results) if facial_results else 0
+        })
+        
+        st.markdown("**Fusion Model Performance:**")
+        feature_importance = fusion_result.get('feature_importance', {})
+        st.json({
+            'fusion_method': fusion_result.get('fusion_method', 'CNN_LSTM_Fusion'),
+            'facial_feature_importance': feature_importance.get('facial_importance', 0),
+            'audio_feature_importance': feature_importance.get('audio_importance', 0),
+            'fusion_layer_importance': feature_importance.get('fusion_importance', 0)
+        })
+    
+    # Medical disclaimer
+    st.warning("⚠️ **IMPORTANT MEDICAL DISCLAIMER:** This AI system is for research and demonstration purposes only. Results should not be used for actual medical diagnosis. Always consult qualified healthcare professionals for medical concerns.")
 
 def neuropsychiatric_analysis_tab():
     """Handle advanced neuropsychiatric and metabolic disease analysis using multimodal features."""
