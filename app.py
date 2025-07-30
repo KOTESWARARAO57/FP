@@ -546,16 +546,18 @@ def neuropsychiatric_analysis_tab():
                 
                 if selected_video != "None":
                     video_path = os.path.join(data_dir, selected_video)
-                    process_neuropsychiatric_video(video_path, selected_video, language)
+                    # Auto-process the video immediately
+                    auto_process_neuropsychiatric_video(video_path, selected_video, language)
         
-        # Process uploaded video
+        # Process uploaded video automatically
         if uploaded_video is not None:
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
                 tmp_file.write(uploaded_video.getvalue())
                 temp_path = tmp_file.name
             
             try:
-                process_neuropsychiatric_video(temp_path, uploaded_video.name, language)
+                # Auto-process immediately upon upload
+                auto_process_neuropsychiatric_video(temp_path, uploaded_video.name, language)
             finally:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
@@ -586,8 +588,158 @@ def neuropsychiatric_analysis_tab():
         if uploaded_image is not None:
             process_neuropsychiatric_image(uploaded_image, language)
 
+def auto_process_neuropsychiatric_video(video_path: str, video_name: str, language: str):
+    """Automatically process video for neuropsychiatric analysis without button click."""
+    st.success(f"Auto-processing {video_name} for neuropsychiatric analysis...")
+    
+    # Video information
+    video_info = video_processor.get_video_info(video_path)
+    if video_info:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Duration", f"{video_info.get('duration', 0):.1f}s")
+        with col2:
+            st.metric("Language", language)
+        with col3:
+            st.metric("Analysis Type", "Multimodal")
+    
+    # Automatically start analysis
+    with st.spinner("Performing comprehensive neuropsychiatric analysis..."):
+        # Extract frames for facial analysis
+        frames = video_processor.extract_frames(video_path, num_frames=15, method='uniform')
+        
+        # Extract audio for speech analysis
+        audio_data, sample_rate = video_processor.extract_audio_from_video(video_path)
+        
+        if frames and audio_data is not None:
+            # Facial micro-expression analysis
+            st.subheader("👤 Facial Micro-expression Analysis")
+            facial_features = facial_analyzer.analyze_micro_expressions(frames)
+            
+            if 'error' not in facial_features:
+                # Display facial analysis results
+                facial_metrics = pd.DataFrame([
+                    {"Metric": "Face Detection Rate", "Value": f"{facial_features.get('face_detection_rate', 0):.1%}"},
+                    {"Metric": "Frames Analyzed", "Value": facial_features.get('total_frames_analyzed', 0)},
+                    {"Metric": "Facial Symmetry (avg)", "Value": f"{facial_features.get('face_symmetry_mean', 0):.3f}"},
+                    {"Metric": "Expression Variance", "Value": f"{facial_features.get('face_symmetry_std', 0):.3f}"},
+                ])
+                st.dataframe(facial_metrics, use_container_width=True)
+                
+                # Get facial prediction
+                facial_prediction = neuropsych_classifier.predict_from_facial_features(facial_features)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Facial Analysis Result", facial_prediction.get('predicted_class', 'Unknown'))
+                with col2:
+                    st.metric("Confidence", f"{facial_prediction.get('confidence', 0):.1%}")
+            
+            # Speech paralinguistics analysis
+            st.subheader("🗣️ Speech Paralinguistics Analysis")
+            prosodic_features = speech_analyzer.extract_prosodic_features(audio_data, sample_rate)
+            fluency_features = speech_analyzer.analyze_fluency_patterns(audio_data, sample_rate)
+            
+            # Combine speech features
+            combined_speech_features = {**prosodic_features, **fluency_features}
+            
+            # Display speech analysis results
+            speech_metrics = pd.DataFrame([
+                {"Metric": "F0 Mean (Hz)", "Value": f"{prosodic_features.get('f0_mean', 0):.1f}"},
+                {"Metric": "Speech Rate", "Value": f"{fluency_features.get('speech_rate', 0):.2f}"},
+                {"Metric": "Pause Frequency", "Value": f"{fluency_features.get('pause_frequency', 0):.2f}"},
+                {"Metric": "Rhythm Regularity", "Value": f"{prosodic_features.get('rhythm_regularity', 0):.3f}"},
+            ])
+            st.dataframe(speech_metrics, use_container_width=True)
+            
+            # Get speech prediction
+            speech_prediction = neuropsych_classifier.predict_from_speech_features(combined_speech_features)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Speech Analysis Result", speech_prediction.get('predicted_class', 'Unknown'))
+            with col2:
+                st.metric("Confidence", f"{speech_prediction.get('confidence', 0):.1%}")
+            
+            # Multimodal prediction - Final Diagnosis
+            if 'error' not in facial_features:
+                st.subheader("🎯 FINAL DIAGNOSIS")
+                multimodal_prediction = neuropsych_classifier.predict_multimodal(facial_features, combined_speech_features)
+                
+                # Highlight the final diagnosis prominently
+                st.success(f"**DIAGNOSED CONDITION: {multimodal_prediction.get('predicted_class', 'Unknown')}**")
+                st.info(f"**CONFIDENCE LEVEL: {multimodal_prediction.get('confidence', 0):.1%}**")
+                
+                # Display final results
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric(
+                        "Final Diagnosis",
+                        multimodal_prediction.get('predicted_class', 'Unknown'),
+                        help="Based on combined facial and speech analysis"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "Overall Confidence", 
+                        f"{multimodal_prediction.get('confidence', 0):.1%}",
+                        help="Confidence in multimodal prediction"
+                    )
+                
+                with col3:
+                    # Calculate improvement over single modality
+                    max_single = max(facial_prediction.get('confidence', 0), speech_prediction.get('confidence', 0))
+                    improvement = multimodal_prediction.get('confidence', 0) - max_single
+                    st.metric(
+                        "Multimodal Gain",
+                        f"{improvement:+.1%}",
+                        help="Improvement over best single modality"
+                    )
+                
+                # Detailed probability breakdown
+                st.subheader("📊 Detailed Analysis Results")
+                
+                # Create comparison chart
+                all_probs = multimodal_prediction.get('all_probabilities', {})
+                if all_probs:
+                    prob_df = pd.DataFrame([
+                        {
+                            'Condition': condition,
+                            'Facial': facial_prediction.get('all_probabilities', {}).get(condition, 0),
+                            'Speech': speech_prediction.get('all_probabilities', {}).get(condition, 0),
+                            'Multimodal': prob
+                        }
+                        for condition, prob in all_probs.items()
+                    ])
+                    
+                    # Display as heatmap-style table
+                    st.dataframe(
+                        prob_df.style.format({
+                            'Facial': '{:.1%}',
+                            'Speech': '{:.1%}',
+                            'Multimodal': '{:.1%}'
+                        }).background_gradient(subset=['Facial', 'Speech', 'Multimodal']),
+                        use_container_width=True
+                    )
+                    
+                    # Generate clinical recommendations
+                    st.subheader("💡 Clinical Recommendations")
+                    predicted_condition = multimodal_prediction.get('predicted_class', '').lower()
+                    confidence = multimodal_prediction.get('confidence', 0)
+                    
+                    recommendations = generate_clinical_recommendations(predicted_condition, confidence, language)
+                    for rec in recommendations:
+                        st.info(rec)
+        
+        else:
+            if not frames:
+                st.error("Could not extract frames from video for facial analysis.")
+            if audio_data is None:
+                st.error("Could not extract audio from video for speech analysis.")
+
 def process_neuropsychiatric_video(video_path: str, video_name: str, language: str):
-    """Process video for neuropsychiatric analysis."""
+    """Process video for neuropsychiatric analysis with manual button."""
     st.success(f"Processing {video_name} for neuropsychiatric analysis...")
     
     # Video information
