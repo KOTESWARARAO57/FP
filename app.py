@@ -667,8 +667,24 @@ def auto_process_neuropsychiatric_video(video_path: str, video_name: str, langua
                 multimodal_prediction = neuropsych_classifier.predict_multimodal(facial_features, combined_speech_features)
                 
                 # Highlight the final diagnosis prominently
-                st.success(f"**DIAGNOSED CONDITION: {multimodal_prediction.get('predicted_class', 'Unknown')}**")
-                st.info(f"**CONFIDENCE LEVEL: {multimodal_prediction.get('confidence', 0):.1%}**")
+                predicted_disease = multimodal_prediction.get('predicted_class', 'Unknown')
+                confidence_level = multimodal_prediction.get('confidence', 0)
+                
+                # Create prominent disease announcement
+                if predicted_disease != 'Healthy':
+                    st.error(f"🚨 **DISEASE DETECTED: {predicted_disease.upper()}**")
+                    st.warning(f"🔍 **CONFIDENCE: {confidence_level:.1%}**")
+                    
+                    # Add severity assessment
+                    if confidence_level > 0.8:
+                        st.error("⚠️ **HIGH CONFIDENCE DETECTION - IMMEDIATE MEDICAL ATTENTION RECOMMENDED**")
+                    elif confidence_level > 0.6:
+                        st.warning("⚠️ **MODERATE CONFIDENCE - MEDICAL CONSULTATION ADVISED**")
+                    else:
+                        st.info("⚠️ **LOW CONFIDENCE - MONITORING RECOMMENDED**")
+                else:
+                    st.success(f"✅ **NO DISEASE DETECTED: {predicted_disease}**")
+                    st.info(f"🔍 **CONFIDENCE: {confidence_level:.1%}**")
                 
                 # Display final results
                 col1, col2, col3 = st.columns(3)
@@ -962,12 +978,22 @@ def generate_clinical_recommendations(condition: str, confidence: float, languag
     """Generate clinical recommendations based on predicted condition."""
     recommendations = []
     
-    if confidence < 0.5:
-        recommendations.append("⚠️ Low confidence prediction. Additional clinical assessment recommended.")
-        return recommendations
-    
+    # Always include disclaimer first
     base_rec = "🏥 These are AI-generated suggestions. Always consult healthcare professionals for medical decisions."
     recommendations.append(base_rec)
+    
+    if confidence < 0.4:
+        recommendations.append("⚠️ Low confidence prediction. Additional clinical assessment recommended.")
+        recommendations.append("🔄 Consider retesting with higher quality video/audio data.")
+        return recommendations
+    
+    # Add urgency-based recommendations
+    if confidence > 0.8:
+        recommendations.append("🚨 HIGH CONFIDENCE DETECTION - Schedule immediate medical consultation.")
+    elif confidence > 0.6:
+        recommendations.append("⚠️ MODERATE CONFIDENCE - Schedule medical evaluation within 2 weeks.")
+    else:
+        recommendations.append("📅 MONITORING RECOMMENDED - Schedule routine check-up.")
     
     if 'depression' in condition:
         recommendations.extend([
