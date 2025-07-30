@@ -241,15 +241,40 @@ class MultilingualMedicalAI:
             }
             micro_expression_patterns.append(micro_expressions)
         
-        # Aggregate features for medical analysis
+        # Calculate primary medical indicators
+        depression_score = np.mean([e['sad'] + e['neutral'] - e['happy'] for e in emotions_over_time])
+        parkinsons_score = np.mean([me['facial_asymmetry'] + me['muscle_tension_patterns'] for me in micro_expression_patterns])
+        hypothyroid_score = np.mean([me['eye_blink_rate'] / 30 + (1 - me['gaze_stability']) for me in micro_expression_patterns])
+        emotion_stability = np.std([sum(e.values()) for e in emotions_over_time])
+        emotional_range = max([max(e.values()) for e in emotions_over_time]) - min([min(e.values()) for e in emotions_over_time])
+        micro_variance = np.std([list(me.values()) for me in micro_expression_patterns])
+        
+        # Aggregate features for medical analysis (ordered as specified)
         aggregated_features = {
-            'avg_emotion_stability': np.std([sum(e.values()) for e in emotions_over_time]),
-            'depression_indicators': np.mean([e['sad'] + e['neutral'] - e['happy'] for e in emotions_over_time]),
-            'parkinsons_indicators': np.mean([me['facial_asymmetry'] + me['muscle_tension_patterns'] for me in micro_expression_patterns]),
-            'hypothyroid_indicators': np.mean([me['eye_blink_rate'] / 30 + (1 - me['gaze_stability']) for me in micro_expression_patterns]),
-            'emotional_range': max([max(e.values()) for e in emotions_over_time]) - min([min(e.values()) for e in emotions_over_time]),
-            'micro_expression_variance': np.std([list(me.values()) for me in micro_expression_patterns])
+            'avg_emotion_stability': emotion_stability,
+            'depression_indicators': depression_score,
+            'parkinsons_indicators': parkinsons_score,
+            'hypothyroid_indicators': hypothyroid_score,
+            'emotional_range': emotional_range,
+            'micro_expression_variance': micro_variance
         }
+        
+        # Calculate majority-based classification
+        indicator_scores = {
+            'depression': depression_score,
+            'parkinsons': parkinsons_score,
+            'hypothyroid': hypothyroid_score
+        }
+        
+        # Determine majority condition based on highest indicator
+        majority_condition = max(indicator_scores, key=indicator_scores.get)
+        majority_confidence = max(indicator_scores.values())
+        
+        aggregated_features.update({
+            'majority_condition': majority_condition,
+            'majority_confidence': majority_confidence,
+            'indicator_rankings': sorted(indicator_scores.items(), key=lambda x: x[1], reverse=True)
+        })
         
         self.facial_features = {
             'emotions_timeline': emotions_over_time,
@@ -531,6 +556,10 @@ class MultilingualMedicalAI:
                 'clinical_significance': 'Significant' if probabilities[i] > 0.5 else 'Moderate' if probabilities[i] > 0.2 else 'Low'
             }
         
+        # Generate majority-based medical report
+        facial_features = self.facial_features.get('aggregated_features', {})
+        majority_report = self.generate_majority_medical_report(facial_features)
+        
         fusion_results = {
             'prediction': prediction,
             'confidence': confidence,
@@ -539,6 +568,7 @@ class MultilingualMedicalAI:
             'class_probabilities': dict(zip(DISEASES, probabilities)),
             'risk_assessment': risk_scores,
             'clinical_indicators': clinical_indicators,
+            'majority_medical_report': majority_report,
             'modality_weights': {
                 'facial_contribution': facial_importance / total_importance if total_importance > 0 else 0.5,
                 'speech_contribution': speech_importance / total_importance if total_importance > 0 else 0.5
@@ -557,6 +587,97 @@ class MultilingualMedicalAI:
         }
         
         return fusion_results
+    
+    def generate_majority_medical_report(self, facial_features):
+        """Generate majority-based medical indicator report"""
+        if not facial_features:
+            return {}
+        
+        # Extract the 6 key indicators
+        indicators = {
+            'avg_emotion_stability': facial_features.get('avg_emotion_stability', 0),
+            'depression_indicators': facial_features.get('depression_indicators', 0),
+            'parkinsons_indicators': facial_features.get('parkinsons_indicators', 0),
+            'hypothyroid_indicators': facial_features.get('hypothyroid_indicators', 0),
+            'emotional_range': facial_features.get('emotional_range', 0),
+            'micro_expression_variance': facial_features.get('micro_expression_variance', 0)
+        }
+        
+        # Normalize indicators to 0-1 scale
+        max_val = max(abs(v) for v in indicators.values()) if any(indicators.values()) else 1
+        normalized_indicators = {k: abs(v) / max_val for k, v in indicators.items()}
+        
+        # Calculate medical condition strengths
+        medical_strengths = {
+            'depression_strength': (
+                normalized_indicators['depression_indicators'] * 0.4 +
+                (1 - normalized_indicators['avg_emotion_stability']) * 0.3 +
+                (1 - normalized_indicators['emotional_range']) * 0.3
+            ),
+            'parkinsons_strength': (
+                normalized_indicators['parkinsons_indicators'] * 0.5 +
+                normalized_indicators['micro_expression_variance'] * 0.3 +
+                (1 - normalized_indicators['avg_emotion_stability']) * 0.2
+            ),
+            'hypothyroid_strength': (
+                normalized_indicators['hypothyroid_indicators'] * 0.6 +
+                (1 - normalized_indicators['emotional_range']) * 0.2 +
+                normalized_indicators['micro_expression_variance'] * 0.2
+            )
+        }
+        
+        # Determine majority condition
+        majority_condition = max(medical_strengths, key=medical_strengths.get)
+        majority_strength = medical_strengths[majority_condition]
+        
+        # Generate confidence levels for each indicator
+        indicator_confidence = {}
+        for indicator, value in normalized_indicators.items():
+            if value > 0.7:
+                indicator_confidence[indicator] = 'High'
+            elif value > 0.4:
+                indicator_confidence[indicator] = 'Medium'
+            else:
+                indicator_confidence[indicator] = 'Low'
+        
+        # Create ranking of all indicators
+        indicator_ranking = sorted(normalized_indicators.items(), key=lambda x: x[1], reverse=True)
+        
+        majority_report = {
+            'primary_indicators': indicators,
+            'normalized_indicators': normalized_indicators,
+            'medical_condition_strengths': medical_strengths,
+            'majority_condition': majority_condition.replace('_strength', ''),
+            'majority_strength': majority_strength,
+            'indicator_confidence_levels': indicator_confidence,
+            'indicator_ranking': indicator_ranking,
+            'top_3_indicators': indicator_ranking[:3],
+            'clinical_summary': self.generate_clinical_summary(majority_condition, majority_strength, indicator_ranking)
+        }
+        
+        return majority_report
+    
+    def generate_clinical_summary(self, majority_condition, strength, ranking):
+        """Generate clinical summary based on majority findings"""
+        condition_name = majority_condition.replace('_strength', '').title()
+        
+        if strength > 0.7:
+            severity = "Strong"
+        elif strength > 0.4:
+            severity = "Moderate"
+        else:
+            severity = "Mild"
+        
+        top_indicators = [item[0] for item in ranking[:3]]
+        
+        summary = {
+            'primary_finding': f"{severity} indicators for {condition_name}",
+            'confidence_level': f"{strength:.1%}",
+            'key_supporting_features': top_indicators,
+            'clinical_recommendation': f"Further evaluation recommended for {condition_name.lower()} assessment"
+        }
+        
+        return summary
 
 def create_comprehensive_visualizations(analyzer, fusion_results):
     """Create comprehensive visualization dashboard"""
@@ -904,6 +1025,82 @@ if uploaded_file is not None:
             fig_modality = px.pie(modality_df, values='Contribution', names='Modality',
                                 title="Multimodal Analysis Contribution Weights")
             st.plotly_chart(fig_modality, use_container_width=True)
+            
+            # Majority Medical Indicator Report
+            if 'majority_medical_report' in fusion_results and fusion_results['majority_medical_report']:
+                st.subheader("📊 Majority Medical Indicator Report")
+                majority_report = fusion_results['majority_medical_report']
+                
+                # Primary findings
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Majority Condition", majority_report['majority_condition'].title())
+                with col2:
+                    st.metric("Condition Strength", f"{majority_report['majority_strength']:.1%}")
+                with col3:
+                    clinical_summary = majority_report.get('clinical_summary', {})
+                    st.metric("Clinical Finding", clinical_summary.get('primary_finding', 'N/A'))
+                
+                # Key indicators table (ordered as requested: 0,1,2,3,4,5)
+                st.write("**Key Medical Indicators (Ordered by Index):**")
+                indicators_data = []
+                primary_indicators = majority_report['primary_indicators']
+                confidence_levels = majority_report['indicator_confidence_levels']
+                
+                # Order as specified: 0,1,2,3,4,5
+                ordered_indicators = [
+                    ('avg_emotion_stability', 0),
+                    ('depression_indicators', 1),
+                    ('parkinsons_indicators', 2),
+                    ('hypothyroid_indicators', 3),
+                    ('emotional_range', 4),
+                    ('micro_expression_variance', 5)
+                ]
+                
+                for indicator_name, index in ordered_indicators:
+                    indicators_data.append({
+                        'Index': index,
+                        'Indicator': indicator_name,
+                        'Raw_Value': f"{primary_indicators.get(indicator_name, 0):.4f}",
+                        'Normalized_Value': f"{majority_report['normalized_indicators'].get(indicator_name, 0):.3f}",
+                        'Confidence_Level': confidence_levels.get(indicator_name, 'Low')
+                    })
+                
+                indicators_df = pd.DataFrame(indicators_data)
+                st.dataframe(indicators_df, use_container_width=True)
+                
+                # Medical condition strengths
+                st.write("**Medical Condition Assessment:**")
+                condition_data = []
+                for condition, strength in majority_report['medical_condition_strengths'].items():
+                    condition_data.append({
+                        'Medical_Condition': condition.replace('_strength', '').title(),
+                        'Strength_Score': f"{strength:.3f}",
+                        'Assessment': 'Primary' if condition == f"{majority_report['majority_condition']}_strength" else 'Secondary'
+                    })
+                
+                conditions_df = pd.DataFrame(condition_data)
+                st.dataframe(conditions_df, use_container_width=True)
+                
+                # Top 3 indicators visualization
+                st.write("**Top 3 Contributing Indicators:**")
+                top_3 = majority_report['top_3_indicators']
+                top_3_df = pd.DataFrame([
+                    {'Rank': i+1, 'Indicator': indicator, 'Score': f"{score:.3f}"}
+                    for i, (indicator, score) in enumerate(top_3)
+                ])
+                
+                fig_top3 = px.bar(top_3_df, x='Indicator', y='Score', 
+                                title="Top 3 Medical Indicators by Strength",
+                                color='Score', color_continuous_scale='Reds')
+                st.plotly_chart(fig_top3, use_container_width=True)
+                
+                # Clinical summary
+                if clinical_summary:
+                    st.write("**Clinical Summary:**")
+                    st.info(f"**Primary Finding:** {clinical_summary.get('primary_finding', 'N/A')}")
+                    st.info(f"**Confidence:** {clinical_summary.get('confidence_level', 'N/A')}")
+                    st.info(f"**Recommendation:** {clinical_summary.get('clinical_recommendation', 'N/A')}")
             
             # Diagnostic metadata
             st.subheader("📋 Diagnostic Metadata")
